@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Forecast Finder</title>
+	<link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Dosis">
+	<link rel="stylesheet" type="text/css" href="/assets/style.css" />
+	<script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+	<script>
+		function clearMarkers() {
+			for (var id in markers) {
+				markers[id].setMap(null);
+				delete markers[id];
+				delete windows[id];
+			}
+		}
+	</script>
+</head>
+<body>
+<div id="intro">
+	<h1>Welcome to Forecast Finder!</h1>
+	<p>Forecast Finder is a web application that uses the 
+	Dark Sky API and the Google Maps API to help you visualize<br>
+	current weather patterns around the world and get precise
+	summaries of weather to any location around the world. To<br>
+	begin, start by clicking anywhere on the map and watch a
+	 circle appear, colored by the weather at that <br>
+	location. Yellow circles indicate sunny or clear weather,
+	grey circle indicate foggy, overcast, or cloudy weather,<br>
+	white circles indicate snowy weather, and blue circles  
+	indicate rain or hail. To view a summary and current <br>
+	temperature for a given location, simply click the circle
+	you want to view a weather summary of. To delete a circle,<br>
+	right-click it. To clear the map of circles, click the
+	"clear" button located above the map. To zoom, scroll up or down<br>
+	and to view other parts of the map, click and drag.</p>
+</div>
+<form id="searchbox" method="get" action="" name="search">
+	<label for="lat">Latitude: </label><input type="text" id="lat" name="lat"/>
+	<label for="long">Longitude: </label><input type="text" id="lon" name="lon"/>
+	<input type="button" value="Clear" name="clear" onclick="clearMarkers()"/>
+</form>
+    <div id="map"></div>
+    <script type="text/javascript">
+	var map;
+	var markers = {};
+	var windows = {};
+	var id;
+	
+	function initMap() {
+		map = new google.maps.Map(document.getElementById('map'), {
+ 		   center: {lat: 47.4233, lng: -120.3253},
+ 		   zoom: 8,
+ 		   disableDefaultUI: true,
+ 		   scrollable: false,
+ 		   disableDoubleClickZoom: true
+		});	
+		
+		map.addListener('click',function(e) {
+			addMarker(e.latLng, map);
+		});
+	}
+	
+	var addMarker = function (latLng, map) {
+		var lat = latLng.lat();
+		var lon = latLng.lng();
+		var lati = document.getElementById("lat");
+		var long = document.getElementById("lon");
+		lati.value = lat;
+		long.value = lon;
+		var info = {'lat' : lat, 'lon' : lon}
+		url = "/api/results.json?"+$.param(info);
+		$.getJSON(url).done(function(data){
+			var color = "#00FFFF";
+			var summary = data.currently.summary;
+			var spot = data.latitude + ", " + data.longitude;
+			var temp = data.currently.temperature + "\t\u00B0" + "F";
+			var contentString = "<p>" + spot + "</p> <p>" + temp + "</p> <p>" + summary + "</p>";
+			summary = summary.toLowerCase();
+			if (summary.indexOf("cloud") > -1 || summary.indexOf("cast") > -1 || summary.indexOf("foggy") > -1) {
+				color = "#B0B0B0";
+			} else if (summary.indexOf("sun") > -1 || summary.indexOf("clear") > -1) {
+				color = "#FFFF00";
+			} else if (summary.indexOf("snow") > -1 || summary.indexOf("flur") > -1) {
+				color = "#FFFFFF";
+			};
+			
+			infowindow = new google.maps.InfoWindow({
+				content: contentString,
+				position: new google.maps.LatLng(data.latitude,data.longitude)
+			});
+			
+			marker = new google.maps.Marker({
+				position: new google.maps.LatLng(data.latitude,data.longitude),
+				icon: {
+					path: google.maps.SymbolPath.CIRCLE,
+					strokeColor: color,
+					fillColor: color,
+					fillOpacity: 0.50,
+					scale: 20,
+					strokeWeight: 0.3
+				},
+				map: map
+			});
+			
+			iden = data.latitude + " " + data.longitude;
+			markers[iden] = marker;
+			windows[iden] = infowindow;
+			
+			google.maps.event.addListener(marker, 'click', function(point) {
+				var identification = point.latLng.lat() + " " + point.latLng.lng();
+				windows[identification].open(map);
+			});	
+			
+			google.maps.event.addListener(marker, 'rightclick', function(point) {
+				var identification = point.latLng.lat() + " " + point.latLng.lng();
+				markers[identification].setMap(null);
+				delete markers[identification];
+				delete windows[identification];
+			});
+		});
+	}
+
+	function setMapOnAll(map) {
+		for (var iden in markers) {
+			markers[iden].setMap(map);
+		}
+	}
+		
+    </script>
+    <script async defer
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBhX_bakjCEhwSiX_XbLaq-lfbgEBEpUeY&callback=initMap">
+    </script>
+
+<div id="message"></div>
+<div id="results">
+</div>	
+</body>
+</html>
